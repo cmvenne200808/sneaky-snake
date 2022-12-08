@@ -30,7 +30,7 @@ class Player {
 		this.ctx = ctx;
 
 		this.currentDirection = MOVE_DOWN;
-		this.head = new Segment(this.x, this.y, "#081418", this.ctx);
+		this.head = new Segment(this.x, this.y, "yellow", this.ctx); // use this color for partially invis snake #081418
 		this.segments = [];
 
 		this.lastUpdate = 0;
@@ -59,6 +59,12 @@ class Player {
 			case MOVE_LEFT:
 				this.head.x -= this.game.gridSize;
 				break;
+		}
+	}
+
+	grow(growBy) {
+		for (let i = 0; i < growBy; i++) {
+			this.segments.push(new Segment(this.x, this.y, "lime", this.ctx));
 		}
 	}
 
@@ -114,7 +120,113 @@ class Segment {
 	}
 }
 
+// food notes
+// when you run into your snake grows - randomize these
+//	red food + 1 segments
+//	blue food + 2 segments
+//	gold food + 5 segments
+//	black food + 20 segments
+// start with circles
+// spawn random grid
+//	within the boundries of the grid
+//	only spawn on empty grid spots
+// How many food spawn?
+//	Make it configurate
+//	At least 4
+
+class Food {
+	/**
+	 * @param {CanvasRenderingContext2D} ctx
+	 */
+	constructor(ctx) {
+		this.ctx = ctx;
+		this.x = 0;
+		this.y = 0;
+		this.radius = game.gridSize / 2;
+		this.color = "red";
+		this.growBy = 1;
+		this.isEaten = true;
+	}
+
+	spawn() {
+		// reset eaten state
+		this.isEaten = false;
+
+		let foodType = Math.floor(Math.random() * 4 + 1);
+
+		switch (foodType) {
+			case 1:
+				this.color = "red";
+				this.growBy = 1;
+				break;
+			case 2:
+				this.color = "blue";
+				this.growBy = 2;
+				break;
+			case 3:
+				this.color = "green";
+				this.growBy = 5;
+				break;
+			case 4:
+				this.color = "#081418";
+				this.growBy = 20;
+				break;
+		}
+
+		let xGridMaxValue = canvas.width / game.gridSize;
+		let yGridMaxValue = canvas.height / game.gridSize;
+
+		let randomX = Math.floor(Math.random() * xGridMaxValue);
+		let randomY = Math.floor(Math.random() * yGridMaxValue);
+
+		this.x = randomX * game.gridSize;
+		this.y = randomY * game.gridSize;
+	}
+
+	update() {}
+
+	draw() {
+		if (this.isEaten) return;
+
+		this.ctx.beginPath();
+		this.ctx.fillStyle = this.color;
+		this.ctx.arc(
+			this.x + this.radius,
+			this.y + this.radius,
+			this.radius,
+			0,
+			Math.PI * 2
+		);
+		this.ctx.fill();
+		this.ctx.closePath();
+	}
+}
+
+// Other things we can run into - Ideas
+// Bomb
+// Makes you faster
+
 let p1 = new Player(5 * game.gridSize, 5 * game.gridSize, ctx, game);
+
+let food = [new Food(ctx), new Food(ctx), new Food(ctx), new Food(ctx)];
+
+/**
+ * @param {Array<Player>} players
+ * @param {Array<Food>} food
+ */
+function checkIfFoodIsConsumed(players, food) {
+	food.forEach((f) => {
+		players.forEach((p) => {
+			if (p.x == f.x && p.y == f.y) {
+				// food is eaten
+				f.isEaten = true;
+			}
+		});
+	});
+}
+
+// let f1 = new Food(ctx);
+// f1.spawn();
 
 let currentTime = 0;
 
@@ -125,6 +237,14 @@ function gameLoop(timestamp) {
 
 	p1.update(elapsedTime);
 	p1.draw();
+
+	food.forEach((f) => {
+		f.draw();
+	});
+
+	food.filter((f) => f.isEaten).forEach((f) => {
+		f.draw();
+	});
 
 	requestAnimationFrame(gameLoop);
 }
