@@ -11,9 +11,12 @@ const MOVE_DOWN = "down";
 const MOVE_LEFT = "left";
 const MOVE_RIGHT = "right";
 
+//Todo for game
+// 	we need a start screen
+
 let game = {
 	gridSize: 20,
-	refreshRate: 500, //milliseconds
+	refreshRate: 100, //milliseconds
 };
 
 class Player {
@@ -30,11 +33,40 @@ class Player {
 		this.ctx = ctx;
 
 		this.currentDirection = MOVE_DOWN;
+		this.requestedDirection = MOVE_DOWN;
 		this.head = new Segment(this.x, this.y, "yellow", this.ctx); // use this color for partially invis snake #081418
+		/** @type {Array<Segment>} */
 		this.segments = [];
+		this.sneakCount = 0;
+		this.isDead = false;
 
 		this.lastUpdate = 0;
 		this.wireUpEvents();
+	}
+
+	isReverseMove() {
+		if (
+			this.requestedDirection == MOVE_RIGHT &&
+			this.currentDirection == MOVE_LEFT
+		)
+			return true;
+		if (
+			this.requestedDirection == MOVE_LEFT &&
+			this.currentDirection == MOVE_RIGHT
+		)
+			return true;
+		if (
+			this.requestedDirection == MOVE_DOWN &&
+			this.currentDirection == MOVE_UP
+		)
+			return true;
+		if (
+			this.requestedDirection == MOVE_UP &&
+			this.currentDirection == MOVE_DOWN
+		)
+			return true;
+
+		return false;
 	}
 
 	/**
@@ -43,8 +75,39 @@ class Player {
 	update(elapsedTime) {
 		this.lastUpdate += elapsedTime;
 		if (this.lastUpdate < this.game.refreshRate) return;
-
 		this.lastUpdate = 0;
+
+		if (this.isReverseMove()) {
+			// check if reverse is available
+			if (this.sneakCount == 0) {
+				// valid reversal
+				this.currentDirection = this.requestedDirection;
+				this.sneakCount++;
+				// figure out reversal
+
+				// reverse sort our body segments
+				let reverseSegments = [];
+
+				for (let i = this.segments.length - 1; i == 0; i--) {
+					reverseSegments.push(this.segments[i]);
+				}
+				this.segments = reverseSegments;
+
+				// flip head and tail positions
+			}
+		} else {
+			this.currentDirection = this.requestedDirection;
+		}
+
+		for (let i = this.segments.length - 1; i >= 1; i--) {
+			this.segments[i].x = this.segments[i - 1].x;
+			this.segments[i].y = this.segments[i - 1].y;
+		}
+
+		if (this.segments.length > 0) {
+			this.segments[0].x = this.head.x;
+			this.segments[0].y = this.head.y;
+		}
 
 		switch (this.currentDirection) {
 			case MOVE_DOWN:
@@ -60,15 +123,31 @@ class Player {
 				this.head.x -= this.game.gridSize;
 				break;
 		}
+
+		// check for death
+		if (
+			this.head.x < 0 ||
+			this.head.y < 0 ||
+			this.head.x >= canvas.width ||
+			this.head.y >= canvas.height ||
+			this.segments.some((s) => s.x == this.head.x && s.y == this.head.y)
+		) {
+			this.isDead = true;
+		}
 	}
 
 	grow(growBy) {
 		for (let i = 0; i < growBy; i++) {
-			this.segments.push(new Segment(this.x, this.y, "lime", this.ctx));
+			this.segments.push(
+				new Segment(this.head.x, this.head.y, "gold", this.ctx)
+			);
 		}
+		this.sneakCount++;
 	}
 
 	draw() {
+		// if(this.isDead) return;
+
 		this.head.draw();
 		this.segments.forEach((s) => {
 			s.draw();
@@ -80,16 +159,16 @@ class Player {
 			// console.log(e);
 			switch (e.code) {
 				case "ArrowUp":
-					this.currentDirection = MOVE_UP;
+					this.requestedDirection = MOVE_UP;
 					break;
 				case "ArrowDown":
-					this.currentDirection = MOVE_DOWN;
+					this.requestedDirection = MOVE_DOWN;
 					break;
 				case "ArrowLeft":
-					this.currentDirection = MOVE_LEFT;
+					this.requestedDirection = MOVE_LEFT;
 					break;
 				case "ArrowRight":
-					this.currentDirection = MOVE_RIGHT;
+					this.requestedDirection = MOVE_RIGHT;
 					break;
 			}
 		});
@@ -121,7 +200,7 @@ class Segment {
 }
 
 // food notes
-// when you run into your snake grows - randomize these
+// when you run into your snake grows - randomize cheese
 //	red food + 1 segments
 //	blue food + 2 segments
 //	gold food + 5 segments
@@ -152,7 +231,7 @@ class Food {
 		// reset eaten state
 		this.isEaten = false;
 
-		let foodType = Math.floor(Math.random() * 4 + 1);
+		let foodType = Math.floor(Math.random() * 5 + 1);
 
 		switch (foodType) {
 			case 1:
@@ -170,6 +249,14 @@ class Food {
 			case 4:
 				this.color = "#081418";
 				this.growBy = 20;
+				break;
+			// case 5:
+			// 	this.color = "black";
+			// 	this.growBy = 100;
+			// 	break;
+			case 5:
+				this.color = "white";
+				this.growBy = 250;
 				break;
 		}
 
@@ -217,9 +304,12 @@ let food = [new Food(ctx), new Food(ctx), new Food(ctx), new Food(ctx)];
 function checkIfFoodIsConsumed(players, food) {
 	food.forEach((f) => {
 		players.forEach((p) => {
-			if (p.x == f.x && p.y == f.y) {
+			//
+			if (p.head.x == f.x && p.head.y == f.y) {
+				console.log("food is eaten");
 				// food is eaten
 				f.isEaten = true;
+				p.grow(f.growBy);
 			}
 		});
 	});
@@ -242,9 +332,17 @@ function gameLoop(timestamp) {
 		f.draw();
 	});
 
+	checkIfFoodIsConsumed([p1], food);
+
 	food.filter((f) => f.isEaten).forEach((f) => {
-		f.draw();
+		f.spawn();
 	});
+
+	let isGameOver = [p1].some((p) => p.isDead);
+
+	if (isGameOver) {
+		return;
+	}
 
 	requestAnimationFrame(gameLoop);
 }
