@@ -85,15 +85,21 @@ class Player {
 				this.sneakCount++;
 				// figure out reversal
 
-				// reverse sort our body segments
-				let reverseSegments = [];
+				let headX = this.head.x;
+				let headY = this.head.y;
 
-				for (let i = this.segments.length - 1; i == 0; i--) {
-					reverseSegments.push(this.segments[i]);
-				}
-				this.segments = reverseSegments;
+				/** @type {Segment} */ //@ts-ignore
+				let tail = this.segments.pop();
 
-				// flip head and tail positions
+				this.segments = this.segments.reverse();
+
+				this.head.x = tail?.x;
+				this.head.y = tail?.y;
+
+				this.x = headX;
+				this.y = headY;
+
+				this.segments.push(tail);
 			}
 		} else {
 			this.currentDirection = this.requestedDirection;
