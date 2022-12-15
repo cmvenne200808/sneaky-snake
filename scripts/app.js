@@ -142,8 +142,11 @@ class Player {
 		}
 	}
 
-	grow(growBy) {
-		for (let i = 0; i < growBy; i++) {
+	/**
+	 * @param {Food} food
+	 */
+	grow(food) {
+		for (let i = 0; i < food.growBy; i++) {
 			this.segments.push(
 				new Segment(this.head.x, this.head.y, "gold", this.ctx)
 			);
@@ -230,37 +233,44 @@ class Food {
 		this.radius = game.gridSize / 2;
 		this.color = "red";
 		this.growBy = 1;
+		this.sneakAttempts = 0;
 		this.isEaten = true;
 	}
 
-	spawn() {
+	/**
+	 * @param {Array<Player>} [players]
+	 * @param {Array<Food>} [food]
+	 */
+	spawn(players, food) {
 		// reset eaten state
 		this.isEaten = false;
 
-		let foodType = Math.floor(Math.random() * 5 + 1);
+		let foodType = Math.floor(Math.random() * 8 + 1);
 
 		switch (foodType) {
 			case 1:
-				this.color = "red";
-				this.growBy = 1;
-				break;
 			case 2:
-				this.color = "blue";
-				this.growBy = 2;
+				this.color = "red";
+				this.growBy = 3;
+				this.sneakAttempts = 2;
 				break;
 			case 3:
+			case 4:
+			case 5:
+				this.color = "blue";
+				this.growBy = 2;
+				this.sneakAttempts = 1;
+				break;
+			case 6:
+			case 7:
 				this.color = "green";
 				this.growBy = 5;
-				break;
-			case 4:
-				this.color = "#081418";
-				this.growBy = 20;
 				break;
 			// case 5:
 			// 	this.color = "black";
 			// 	this.growBy = 100;
 			// 	break;
-			case 5:
+			default:
 				this.color = "white";
 				this.growBy = 250;
 				break;
@@ -271,6 +281,29 @@ class Food {
 
 		let randomX = Math.floor(Math.random() * xGridMaxValue);
 		let randomY = Math.floor(Math.random() * yGridMaxValue);
+
+		const MAX_TRIES = 10;
+		let tryCount = 1;
+		do{
+			let isOverLapping = false;
+
+			players?.forEach((p) => {
+				if(p.head.x == randomX && p.head.y == randomY) {
+					isOverLapping = true;
+				}
+				if(p.segments.some((s) => s.x == randomX && s.y == randomY)) {
+					isOverLapping = true;
+				};
+			});
+
+			if(isOverLapping == false) {
+				isOverLapping = food?.some((f) => f.x == randomX && f.y == randomY) ?? 
+			}
+
+			if(isOverLapping == false) {
+				tryCount = MAX_TRIES
+			}
+		} while(tryCount < MAX_TRIES)
 
 		this.x = randomX * game.gridSize;
 		this.y = randomY * game.gridSize;
@@ -315,7 +348,7 @@ function checkIfFoodIsConsumed(players, food) {
 				console.log("food is eaten");
 				// food is eaten
 				f.isEaten = true;
-				p.grow(f.growBy);
+				p.grow(f);
 			}
 		});
 	});
@@ -341,7 +374,7 @@ function gameLoop(timestamp) {
 	checkIfFoodIsConsumed([p1], food);
 
 	food.filter((f) => f.isEaten).forEach((f) => {
-		f.spawn();
+		f.spawn([p1], food);
 	});
 
 	let isGameOver = [p1].some((p) => p.isDead);
